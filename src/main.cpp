@@ -6,7 +6,7 @@
 #define I2S_WS_IO (26)  // word select [LRCK]
 #define I2S_DO_IO (25)  // data out [DATA]
 #define I2S_DI_IO (34)  // data in [DATA]
-#define I2S_MCK_IO (1)  // master clock [MCLK]
+#define I2S_MCK_IO (3)  // master clock [MCLK]
 #define I2S_NUM (I2S_NUM_0)
 
 void configureSetup();
@@ -47,12 +47,12 @@ void configureSetup()
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
         .dma_buf_count = 8,
         .dma_buf_len = 64, // Kleine Buffer für geringe Latenz
-        .use_apll = false};
+        .use_apll = true};
     i2s_driver_install(I2S_NUM, &i2s_config, 0, NULL);
 
     //-------------PINS------------------
     i2s_pin_config_t pin_config = {
-        .mck_io_num = GPIO_NUM_1,
+        .mck_io_num = I2S_MCK_IO,
         .bck_io_num = I2S_BCK_IO,
         .ws_io_num = I2S_WS_IO,
         .data_out_num = I2S_DO_IO,

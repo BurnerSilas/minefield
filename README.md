@@ -18,3 +18,7 @@ Work in Progress ... obviously
 ## DAC Setup
 
 ![](./docs/images/PCM5102MK2.0_setup.png)
+
+## IRL Setup
+
+![](./docs/images/IRL_Setup.jpeg)

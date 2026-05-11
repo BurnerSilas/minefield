@@ -1,15 +1,20 @@
 #include <Arduino.h>
 #include "driver/i2s.h"
+#include "Distortion.h"
+#include "SerialControl.h"
 
 //----PINS----
 #define I2S_BCK_IO (27) // bit clock [BCK]
 #define I2S_WS_IO (26)  // word select [LRCK]
 #define I2S_DO_IO (25)  // data out [DATA]
 #define I2S_DI_IO (34)  // data in [DATA]
-#define I2S_MCK_IO (3)  // master clock [MCLK]
+#define I2S_MCK_IO (0)  // master clock [MCLK]
 #define I2S_NUM (I2S_NUM_0)
 
 void configureSetup();
+
+Distortion distortion(Distortion::Mode::FUZZ, /*drive*/ 8.0f, /*level*/ 0.6f);
+SerialControl serialControl(distortion);
 
 void setup()
 {
@@ -17,12 +22,17 @@ void setup()
 
     configureSetup();
 
+    delay(3000);
+
     Serial.println("I2S Pass-Through started...");
 }
 
 void loop()
 {
-    int16_t rx_buffer[128];
+
+    serialControl.update();
+
+    int32_t rx_buffer[64];
     size_t bytes_read, bytes_written;
 
     // read audio from ADC
@@ -30,7 +40,10 @@ void loop()
 
     if (bytes_read > 0)
     {
-        // write audio to DAC
+        size_t sampleCount = bytes_read / sizeof(int32_t);
+
+        // distortion.processBuffer(rx_buffer, sampleCount);
+        //  write audio to DAC
         i2s_write(I2S_NUM, rx_buffer, bytes_read, &bytes_written, portMAX_DELAY);
     }
 }
@@ -41,9 +54,9 @@ void configureSetup()
     i2s_config_t i2s_config = {
         .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_RX), // Senden & Empfangen
         .sample_rate = 48000,
-        .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
-        .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,      // Stereo
-        .communication_format = I2S_COMM_FORMAT_STAND_I2S, 
+        .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,
+        .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
+        .communication_format = I2S_COMM_FORMAT_STAND_I2S,
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
         .dma_buf_count = 8,
         .dma_buf_len = 64, // Kleine Buffer für geringe Latenz
@@ -52,7 +65,7 @@ void configureSetup()
 
     //-------------PINS------------------
     i2s_pin_config_t pin_config = {
-        .mck_io_num = I2S_MCK_IO,
+        .mck_io_num = I2S_MCK_IO, // I2S_MCK_IO,I2S_PIN_NO_CHANGE
         .bck_io_num = I2S_BCK_IO,
         .ws_io_num = I2S_WS_IO,
         .data_out_num = I2S_DO_IO,

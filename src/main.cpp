@@ -4,11 +4,11 @@
 #include "SerialControl.h"
 
 //----PINS----
-#define I2S_BCK_IO (27) // bit clock [BCK]
-#define I2S_WS_IO (26)  // word select [LRCK]
-#define I2S_DO_IO (25)  // data out [DATA]
-#define I2S_DI_IO (34)  // data in [DATA]
-#define I2S_MCK_IO (0)  // master clock [MCLK]
+#define I2S_MCK_IO (4) // master clock [MCLK]
+#define I2S_BCK_IO (5) // bit clock [BCK]
+#define I2S_WS_IO (6)  // word select [LRCK]
+#define I2S_DO_IO (7)  // data out [DATA]
+#define I2S_DI_IO (8)  // data in [DATA]
 #define I2S_NUM (I2S_NUM_0)
 
 void configureSetup();
@@ -20,11 +20,15 @@ void setup()
 {
     Serial.begin(115200);
 
-    configureSetup();
-
     delay(3000);
 
-    Serial.println("I2S Pass-Through started...");
+    Serial.println("Serial ready!");
+
+    configureSetup();
+
+    Serial.println("Setup done!");
+
+    Serial.println("Starting Audio Pass-Through...");
 }
 
 void loop()
@@ -72,4 +76,6 @@ void configureSetup()
         .data_in_num = I2S_DI_IO};
 
     i2s_set_pin(I2S_NUM, &pin_config);
+
+    Serial.println("Setup I2S done!");
 }

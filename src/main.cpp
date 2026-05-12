@@ -34,7 +34,7 @@ void setup()
 void loop()
 {
 
-    serialControl.update();
+    // serialControl.update();
 
     int32_t rx_buffer[64];
     size_t bytes_read, bytes_written;

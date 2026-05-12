@@ -1,9 +1,23 @@
 
 # Minefield
 
-Minefield is a project for the ESP-32.
+Minefield is a project for the ESP-32-S3.
 
 A digital audio effect panel.
+
+
+
+---
+
+## WIRE Setup
+
+![](./docs/images/WIRE_Setup.jpeg)
+
+## IRL Setup
+
+![](./docs/images/IRL_Setup.jpeg)
+
+---
 
 The basic general idea is...
 
@@ -12,13 +26,3 @@ The basic general idea is...
 ![](./docs/images/abstract_diagram.png)
 
 Work in Progress ... obviously 
-
----
-
-## DAC Setup
-
-![](./docs/images/PCM5102MK2.0_setup.png)
-
-## IRL Setup
-
-![](./docs/images/IRL_Setup.jpeg)

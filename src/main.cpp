@@ -11,7 +11,9 @@
 #define I2S_DI_IO (8)  // data in [DATA]
 #define I2S_NUM (I2S_NUM_0)
 
-void configureSetup();
+void configureI2S();
+void configureCores();
+void processAudio(void *pvParameters);
 
 Distortion distortion(Distortion::Mode::FUZZ, /*drive*/ 8.0f, /*level*/ 0.6f);
 SerialControl serialControl(distortion);
@@ -20,11 +22,13 @@ void setup()
 {
     Serial.begin(115200);
 
-    delay(3000);
-
     Serial.println("Serial ready!");
 
-    configureSetup();
+    delay(3000);
+
+    configureCores();
+
+    configureI2S();
 
     Serial.println("Setup done!");
 
@@ -52,7 +56,11 @@ void loop()
     }
 }
 
-void configureSetup()
+void processAudio(void *pvParameters)
+{
+}
+
+void configureI2S()
 {
     //-------------I2S-----------------
     i2s_config_t i2s_config = {
@@ -78,4 +86,19 @@ void configureSetup()
     i2s_set_pin(I2S_NUM, &pin_config);
 
     Serial.println("Setup I2S done!");
+}
+
+void configureCores()
+{
+    Serial.println("Setting up Core 0 for audio processing.");
+
+    xTaskCreatePinnedToCore(
+        processAudio,   // Function
+        "processAudio", // Name
+        2097152,        // Stack 2097152 Bytes -> 2MB of 8MB
+        NULL,           // Parameters
+        1,              // Priority
+        NULL,           // Task handle
+        0               // Core where
+    );
 }

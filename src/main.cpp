@@ -12,7 +12,7 @@
 #define I2S_NUM (I2S_NUM_0)
 
 void configureI2S();
-void configureCores();
+void configureMT();
 void processAudio(void *pvParameters);
 
 Distortion distortion(Distortion::Mode::FUZZ, /*drive*/ 8.0f, /*level*/ 0.6f);
@@ -26,40 +26,20 @@ void setup()
 
     delay(3000);
 
-    configureCores();
-
     configureI2S();
+
+    configureMT();
 
     Serial.println("Setup done!");
 
     Serial.println("Starting Audio Pass-Through...");
 }
 
-void loop()
-{
+/******************************************************/
+/************************SETUP*************************/
+/******************************************************/
 
-    // serialControl.update();
-
-    int32_t rx_buffer[64];
-    size_t bytes_read, bytes_written;
-
-    // read audio from ADC
-    i2s_read(I2S_NUM, rx_buffer, sizeof(rx_buffer), &bytes_read, portMAX_DELAY);
-
-    if (bytes_read > 0)
-    {
-        size_t sampleCount = bytes_read / sizeof(int32_t);
-
-        // distortion.processBuffer(rx_buffer, sampleCount);
-        //  write audio to DAC
-        i2s_write(I2S_NUM, rx_buffer, bytes_read, &bytes_written, portMAX_DELAY);
-    }
-}
-
-void processAudio(void *pvParameters)
-{
-}
-
+/*I2S*/
 void configureI2S()
 {
     //-------------I2S-----------------
@@ -88,17 +68,48 @@ void configureI2S()
     Serial.println("Setup I2S done!");
 }
 
-void configureCores()
+/*multitasking*/
+void configureMT()
 {
     Serial.println("Setting up Core 0 for audio processing.");
 
     xTaskCreatePinnedToCore(
         processAudio,   // Function
         "processAudio", // Name
-        2097152,        // Stack 2097152 Bytes -> 2MB of 8MB
+        8048,           // Stack
         NULL,           // Parameters
-        1,              // Priority
+        2,              // Priority
         NULL,           // Task handle
         0               // Core where
     );
+}
+
+/******************************************************/
+/************************TASKS*************************/
+/******************************************************/
+
+void processAudio(void *pvParameters)
+{
+    int32_t rx_buffer[64];
+    size_t bytes_read, bytes_written;
+    while (true)
+    {
+        // read audio from ADC
+        i2s_read(I2S_NUM, rx_buffer, sizeof(rx_buffer), &bytes_read, portMAX_DELAY);
+
+        if (bytes_read > 0)
+        {
+            size_t sampleCount = bytes_read / sizeof(int32_t);
+
+            // distortion.processBuffer(rx_buffer, sampleCount);
+            // write audio to DAC
+            i2s_write(I2S_NUM, rx_buffer, bytes_read, &bytes_written, portMAX_DELAY);
+        }
+    }
+}
+
+void loop()
+{
+    // serialControl.update();
+    delay(50);
 }

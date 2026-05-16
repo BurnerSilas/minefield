@@ -2,6 +2,7 @@
 #include "driver/i2s.h"
 #include "Distortion.h"
 #include "SerialControl.h"
+#include <semphr.h>
 
 //----PINS----
 #define I2S_MCK_IO (4) // master clock [MCLK]
@@ -12,11 +13,13 @@
 #define I2S_NUM (I2S_NUM_0)
 
 void configureI2S();
-void configureMT();
+void configureMultitasking();
 void processAudio(void *pvParameters);
 
 Distortion distortion(Distortion::Mode::FUZZ, /*drive*/ 8.0f, /*level*/ 0.6f);
 SerialControl serialControl(distortion);
+
+SemaphoreHandle_t effectMutex;
 
 void setup()
 {
@@ -26,9 +29,12 @@ void setup()
 
     delay(3000);
 
+    // 'MUT'ual 'EX'clusion
+    effectMutex = xSemaphoreCreateMutex();
+
     configureI2S();
 
-    configureMT();
+    configureMultitasking();
 
     Serial.println("Setup done!");
 
@@ -69,7 +75,7 @@ void configureI2S()
 }
 
 /*multitasking*/
-void configureMT()
+void configureMultitasking()
 {
     Serial.println("Setting up Core 0 for audio processing.");
 
@@ -78,9 +84,9 @@ void configureMT()
         "processAudio", // Name
         8048,           // Stack
         NULL,           // Parameters
-        2,              // Priority
+        5,              // Priority
         NULL,           // Task handle
-        0               // Core where
+        0               // Core
     );
 }
 
@@ -92,7 +98,8 @@ void processAudio(void *pvParameters)
 {
     int32_t rx_buffer[64];
     size_t bytes_read, bytes_written;
-    while (true)
+
+    while (1)
     {
         // read audio from ADC
         i2s_read(I2S_NUM, rx_buffer, sizeof(rx_buffer), &bytes_read, portMAX_DELAY);
@@ -101,7 +108,13 @@ void processAudio(void *pvParameters)
         {
             size_t sampleCount = bytes_read / sizeof(int32_t);
 
-            // distortion.processBuffer(rx_buffer, sampleCount);
+            // Mutex anfordern: Core 1 darf jetzt nicht an die Daten ran
+            if (xSemaphoreTake(effectMutex, portMAX_DELAY) == pdTRUE)
+            {
+                distortion.processBuffer(rx_buffer, sampleCount);
+                xSemaphoreGive(effectMutex); // Freigeben für Core 1
+            }
+
             // write audio to DAC
             i2s_write(I2S_NUM, rx_buffer, bytes_read, &bytes_written, portMAX_DELAY);
         }
@@ -110,6 +123,11 @@ void processAudio(void *pvParameters)
 
 void loop()
 {
-    // serialControl.update();
-    delay(50);
+    // Mutex anfordern: Wenn Core 0 gerade rechnet, wartet Serial kurz (max 1ms)
+    if (xSemaphoreTake(effectMutex, pdMS_TO_TICKS(1)) == pdTRUE)
+    {
+        serialControl.update();
+        xSemaphoreGive(effectMutex);
+    }
+    delay(20);
 }

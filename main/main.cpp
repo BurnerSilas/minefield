@@ -21,6 +21,7 @@ i2s_chan_handle_t rx_handle = NULL;
 void configureI2S();
 void configureMultitasking();
 void processAudio(void *pvParameters);
+void applyEffects(int32_t *rx_buffer, size_t sampleCount);
 
 Distortion distortion(Distortion::Mode::FUZZ, /*drive*/ 8.0f, /*level*/ 0.6f);
 // SerialControl serialControl(distortion);
@@ -34,9 +35,6 @@ extern "C" void app_main()
 
     vTaskDelay(pdMS_TO_TICKS(3000));
 
-    // 'MUT'ual 'EX'clusion
-    effectMutex = xSemaphoreCreateMutex();
-
     configureI2S();
 
     configureMultitasking();
@@ -47,13 +45,7 @@ extern "C" void app_main()
 
     while (1)
     {
-        // Mutex anfordern: Wenn Core 0 gerade rechnet, wartet Serial kurz (max 1ms)
-        if (xSemaphoreTake(effectMutex, pdMS_TO_TICKS(1)) == pdTRUE)
-        {
-            // serialControl.update();
-            xSemaphoreGive(effectMutex);
-        }
-        vTaskDelay(pdMS_TO_TICKS(20)); // Verhindert Watchdog-Trigger
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
 
@@ -78,14 +70,8 @@ void processAudio(void *pvParameters)
 
         if (bytes_read > 0)
         {
-            // Mutex anfordern: Core 1 darf jetzt nicht an die Daten ran
-            if (xSemaphoreTake(effectMutex, portMAX_DELAY) == pdTRUE)
-            {
-                size_t sampleCount = bytes_read / sizeof(int32_t);
-                // distortion.processBuffer(rx_buffer, sampleCount);
-                xSemaphoreGive(effectMutex);
-            }
-
+            size_t sampleCount = bytes_read / sizeof(int32_t);
+            // distortion.processBuffer(rx_buffer, sampleCount);
             // write audio to DAC
             i2s_channel_write(tx_handle, rx_buffer, bytes_read, &bytes_written, portMAX_DELAY);
         }

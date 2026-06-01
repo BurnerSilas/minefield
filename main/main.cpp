@@ -5,7 +5,8 @@
 #include "driver/i2s_std.h"  // Neuer nativer I2S-Standard-Treiber
 #include "esp_log.h"         // Für professionelles Logging statt Serial.print
 #include "Distortion.h"
-// #include "SerialControl.h"
+#include "Limiter.h"
+#include "LowPassFilter.h"
 
 i2s_chan_handle_t tx_handle = NULL;
 i2s_chan_handle_t rx_handle = NULL;
@@ -21,12 +22,6 @@ i2s_chan_handle_t rx_handle = NULL;
 void configureI2S();
 void configureMultitasking();
 void processAudio(void *pvParameters);
-void applyEffects(int32_t *rx_buffer, size_t sampleCount);
-
-Distortion distortion(Distortion::Mode::FUZZ, /*drive*/ 8.0f, /*level*/ 0.6f);
-// SerialControl serialControl(distortion);
-
-SemaphoreHandle_t effectMutex;
 
 extern "C" void app_main()
 {
@@ -56,24 +51,44 @@ void processAudio(void *pvParameters)
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 
-    int32_t rx_buffer[128];
+    int32_t audio_buffer[128];
     size_t bytes_read, bytes_written;
+
+    LowPassFilter lowPass(5000.0f, 48000.f);
+    Distortion distortion(10.0f, 0.1f);
+    Limiter limiter(0.5f, SOFT);
 
     ESP_LOGI("AUDIO", "Start Audio Processing Loop.");
 
     while (1)
     {
         // read audio from ADC
-        i2s_channel_read(rx_handle, rx_buffer, sizeof(rx_buffer), &bytes_read, portMAX_DELAY);
+        i2s_channel_read(rx_handle, audio_buffer, sizeof(audio_buffer), &bytes_read, portMAX_DELAY);
 
         // ESP_LOGI("AUDIO", "bytes_read: %d", bytes_read);
 
         if (bytes_read > 0)
         {
             size_t sampleCount = bytes_read / sizeof(int32_t);
-            // distortion.processBuffer(rx_buffer, sampleCount);
+
+            for (size_t i = 0; i < sampleCount; i += 2)
+            {
+                float audioSample = (float)audio_buffer[i] / 2147483648.0f;
+
+                audioSample = lowPass.processSample(audioSample);
+                audioSample = distortion.processSample(audioSample);
+                audioSample = limiter.processSample(audioSample);
+
+                int32_t rawOutput = (int32_t)(audioSample * 2147483647.0f);
+
+                int32_t cleanOutput = rawOutput & 0xFFFFFF00;
+
+                audio_buffer[i] = cleanOutput;     // Links im Kopfhörer
+                audio_buffer[i + 1] = cleanOutput; // Rechts im Kopfhörer
+            }
+
             // write audio to DAC
-            i2s_channel_write(tx_handle, rx_buffer, bytes_read, &bytes_written, portMAX_DELAY);
+            i2s_channel_write(tx_handle, audio_buffer, bytes_read, &bytes_written, portMAX_DELAY);
         }
     }
 }

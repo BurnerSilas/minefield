@@ -7,6 +7,7 @@
 #include "Distortion.h"
 #include "Limiter.h"
 #include "LowPassFilter.h"
+#include "SerialControl.h"
 
 i2s_chan_handle_t tx_handle = NULL;
 i2s_chan_handle_t rx_handle = NULL;
@@ -19,6 +20,11 @@ i2s_chan_handle_t rx_handle = NULL;
 #define I2S_DI_IO GPIO_NUM_8  // data in [DATA]
 #define I2S_NUM I2S_NUM_0
 
+Distortion*    distortion    = nullptr;
+Limiter*       limiter       = nullptr;
+LowPassFilter* lowPass       = nullptr;
+SerialControl* serialControl = nullptr;
+
 void configureI2S();
 void configureMultitasking();
 void processAudio(void *pvParameters);
@@ -29,6 +35,12 @@ extern "C" void app_main()
     ESP_LOGI("MAIN", "Serial ready!");
 
     vTaskDelay(pdMS_TO_TICKS(3000));
+
+    distortion    = new Distortion(10.0f, 0.1f);
+    limiter       = new Limiter(0.5f, SOFT);
+    lowPass       = new LowPassFilter(5000.0f, 48000.0f);
+    serialControl = new SerialControl(*distortion, *limiter, *lowPass);
+    serialControl->init();
 
     configureI2S();
 
@@ -54,10 +66,6 @@ void processAudio(void *pvParameters)
     int32_t audio_buffer[128];
     size_t bytes_read, bytes_written;
 
-    LowPassFilter lowPass(5000.0f, 48000.f);
-    Distortion distortion(10.0f, 0.1f);
-    Limiter limiter(0.5f, SOFT);
-
     ESP_LOGI("AUDIO", "Start Audio Processing Loop.");
 
     while (1)
@@ -75,9 +83,9 @@ void processAudio(void *pvParameters)
             {
                 float audioSample = (float)audio_buffer[i] / 2147483648.0f;
 
-                audioSample = lowPass.processSample(audioSample);
-                audioSample = distortion.processSample(audioSample);
-                audioSample = limiter.processSample(audioSample);
+                audioSample = lowPass->process(audioSample);
+                audioSample = distortion->process(audioSample);
+                audioSample = limiter->process(audioSample);
 
                 int32_t rawOutput = (int32_t)(audioSample * 2147483647.0f);
 
@@ -90,6 +98,15 @@ void processAudio(void *pvParameters)
             // write audio to DAC
             i2s_channel_write(tx_handle, audio_buffer, bytes_read, &bytes_written, portMAX_DELAY);
         }
+    }
+}
+
+void processSerial(void *pvParameters)
+{
+    while (1)
+    {
+        serialControl->update();
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
@@ -107,6 +124,17 @@ void configureMultitasking()
         NULL,           // Task handle
         0               // Core
     );
+
+    ESP_LOGI("MAIN", "Setting up Core 1 for Serial processing.");
+
+    xTaskCreatePinnedToCore(
+        processSerial,
+        "processSerial",
+        4096,
+        NULL,
+        1,
+        NULL,
+        1);
 }
 
 /*I2S Setup*/

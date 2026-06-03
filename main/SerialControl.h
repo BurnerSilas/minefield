@@ -1,72 +1,42 @@
 #pragma once
-#include <Arduino.h>
+#include "driver/usb_serial_jtag.h"
+#include "esp_log.h"
 #include "Distortion.h"
+#include "Limiter.h"
+#include "LowPassFilter.h"
+#include <cstring>
+#include <cstdlib>
 
-class SerialControl
-{
+#define SERIAL_BUF_SIZE 256
+
+class SerialControl {
 public:
-    SerialControl(Distortion &distortion) : _distortion(distortion) {}
+    // Referenzen auf alle Effekte die du steuern willst
+    SerialControl(Distortion& distortion, Limiter& limiter, LowPassFilter& lowPass)
+        : m_distortion(distortion), m_limiter(limiter), m_lowPass(lowPass) {}
 
-    void update()
-    {
-        if (!Serial.available())
-            return;
-
-        String cmd = Serial.readStringUntil('\n');
-        cmd.trim();
-        if (cmd.length() == 0)
-            return;
-        Serial.println("CMD: " + cmd);
-        parseCommand(cmd);
-        Serial.flush();
-    }
+    void init();
+    void update();
 
 private:
-    Distortion &_distortion;
+    Distortion&    m_distortion;
+    Limiter&       m_limiter;
+    LowPassFilter& m_lowPass;
 
-    void parseCommand(const String &cmd)
-    {
-        if (cmd.startsWith("DIST:"))
-        {
-            String sub = cmd.substring(5);
+    char   m_buf[SERIAL_BUF_SIZE];
+    size_t m_bufLen = 0;
 
-            if (sub.startsWith("DRIVE:"))
-            {
-                float val = sub.substring(6).toFloat();
-                _distortion.setDrive(val);
-                Serial.println("OK: drive=" + String(val));
-            }
-            else if (sub.startsWith("LEVEL:"))
-            {
-                float val = sub.substring(6).toFloat();
-                _distortion.setLevel(val);
-                Serial.println("OK: level=" + String(val));
-            }
-            else if (sub.startsWith("MODE:"))
-            {
-                String mode = sub.substring(5);
-                if (mode == "HARD_CLIP")
-                    _distortion.setMode(Distortion::Mode::HARD_CLIP);
-                else if (mode == "SOFT_CLIP")
-                    _distortion.setMode(Distortion::Mode::SOFT_CLIP);
-                else if (mode == "FUZZ")
-                    _distortion.setMode(Distortion::Mode::FUZZ);
-                Serial.println("OK: mode=" + mode);
-            }
-            else if (sub == "ON")
-            {
-                _distortion.setEnabled(true);
-                Serial.println("OK: distortion on");
-            }
-            else if (sub == "OFF")
-            {
-                _distortion.setEnabled(false);
-                Serial.println("OK: distortion off");
-            }
-            else
-            {
-                Serial.println("ERR: unknown command");
-            }
-        }
-    }
+    void parseCommand(const char* cmd);
+
+    void handleBypass(AudioEffect& effect, const char* sub) {
+    if (strcmp(sub, "ON")  == 0) effect.setBypass(true);
+    if (strcmp(sub, "OFF") == 0) effect.setBypass(false);}
+
+    // Ein Handler pro Effekt — hier einfach neue hinzufügen
+    void handleDistortion(const char* sub);
+    void handleLimiter(const char* sub);
+    void handleLowPass(const char* sub);
+
+    // Hilfsfunktionen
+    void respond(const char* msg);
 };

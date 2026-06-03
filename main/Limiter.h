@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "AudioEffect.h"
 
 enum LimiterStyle
 {
@@ -7,7 +8,7 @@ enum LimiterStyle
     SOFT
 };
 
-class Limiter
+class Limiter: public AudioEffect
 {
 public:
     /// @brief Erstellt einen neuen Audio-Limiter zum Schutz vor digitalem Clipping.
@@ -15,7 +16,7 @@ public:
     /// @param limType Die Clipping-Charakteristik (HARD oder SOFT).
     Limiter(float threshold, LimiterStyle limType);
 
-    float processSample(float inputSample);
+    float processSample(float inputSample) override;
 
     void setLimit(float threshold) { m_threshold = threshold; }
     void setType(LimiterStyle limType) { m_limType = limType; }

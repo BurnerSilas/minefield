@@ -1,9 +1,10 @@
 #pragma once
+#include "AudioEffect.h"
 
 /**
  * @brief A first-order IIR Low-Pass Filter to eliminate high-frequency noise.
  */
-class LowPassFilter
+class LowPassFilter : public AudioEffect
 {
 public:
     /**
@@ -18,7 +19,7 @@ public:
      * @param inputSample Normalized input sample in the range [-1.0f to 1.0f].
      * @return Filtered output sample.
      */
-    float processSample(float inputSample);
+    float processSample(float inputSample) override;
 
     /**
      * @brief Updates the cutoff frequency dynamically at runtime.

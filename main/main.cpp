@@ -20,10 +20,10 @@ i2s_chan_handle_t rx_handle = NULL;
 #define I2S_DI_IO GPIO_NUM_8  // data in [DATA]
 #define I2S_NUM I2S_NUM_0
 
-Distortion*    distortion    = nullptr;
-Limiter*       limiter       = nullptr;
-LowPassFilter* lowPass       = nullptr;
-SerialControl* serialControl = nullptr;
+Distortion *distortion = nullptr;
+Limiter *limiter = nullptr;
+LowPassFilter *lowPass = nullptr;
+SerialControl *serialControl = nullptr;
 
 void configureI2S();
 void configureMultitasking();
@@ -36,9 +36,9 @@ extern "C" void app_main()
 
     vTaskDelay(pdMS_TO_TICKS(3000));
 
-    distortion    = new Distortion(10.0f, 0.1f);
-    limiter       = new Limiter(0.5f, SOFT);
-    lowPass       = new LowPassFilter(5000.0f, 48000.0f);
+    distortion = new Distortion();
+    limiter = new Limiter(0.5f, SOFT);
+    lowPass = new LowPassFilter(8000.0f, 48000.0f);
     serialControl = new SerialControl(*distortion, *limiter, *lowPass);
     serialControl->init();
 

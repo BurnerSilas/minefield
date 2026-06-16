@@ -8,6 +8,8 @@
 #include "Limiter.h"
 #include "LowPassFilter.h"
 #include "SerialControl.h"
+#include "AutoWah.h"
+#include "BitCrusher.h"
 
 i2s_chan_handle_t tx_handle = NULL;
 i2s_chan_handle_t rx_handle = NULL;
@@ -24,6 +26,8 @@ Distortion *distortion = nullptr;
 Limiter *limiter = nullptr;
 LowPassFilter *lowPass = nullptr;
 SerialControl *serialControl = nullptr;
+AutoWah *autoWah = nullptr;
+BitCrusher *bitCrusher = nullptr;
 
 void configureI2S();
 void configureMultitasking();
@@ -39,7 +43,10 @@ extern "C" void app_main()
     distortion = new Distortion();
     limiter = new Limiter(0.5f, SOFT);
     lowPass = new LowPassFilter(8000.0f, 48000.0f);
-    serialControl = new SerialControl(*distortion, *limiter, *lowPass);
+    autoWah = new AutoWah();
+    serialControl = new SerialControl(*distortion, *limiter, *lowPass, *autoWah);
+
+    bitCrusher = new BitCrusher();
     serialControl->init();
 
     configureI2S();
@@ -84,8 +91,10 @@ void processAudio(void *pvParameters)
                 float audioSample = (float)audio_buffer[i] / 2147483648.0f;
 
                 audioSample = lowPass->process(audioSample);
-                audioSample = distortion->process(audioSample);
+                // audioSample = distortion->process(audioSample);
+                audioSample = bitCrusher->process(audioSample);
                 audioSample = limiter->process(audioSample);
+                // audioSample = autoWah->process(audioSample);
 
                 int32_t rawOutput = (int32_t)(audioSample * 2147483647.0f);
 

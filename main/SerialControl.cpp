@@ -45,14 +45,16 @@ void SerialControl::parseCommand(const char *cmd)
         handleLimiter(cmd + 4);
     else if (strncmp(cmd, "LPF:", 4) == 0)
         handleLowPass(cmd + 4);
+    else if (strncmp(cmd, "WAH:", 4) == 0)
+        handleAutoWah(cmd + 4);
     else
         respond("ERR: unknown prefix. Use DIST:, LIM:, LPF:\n");
-    if (strncmp(cmd, "DIST:BYPASS:", 12) == 0)
+    /*if (strncmp(cmd, "DIST:BYPASS:", 12) == 0)
         handleBypass(m_distortion, cmd + 12);
     if (strncmp(cmd, "LIM:BYPASS:", 11) == 0)
         handleBypass(m_limiter, cmd + 11);
     if (strncmp(cmd, "LPF:BYPASS:", 11) == 0)
-        handleBypass(m_lowPass, cmd + 11);
+        handleBypass(m_lowPass, cmd + 11);*/
 }
 
 // -------------------------------------------------------
@@ -82,6 +84,10 @@ void SerialControl::handleDistortion(const char *sub)
         m_distortion.setBassBlend(val);
         ESP_LOGI(TAG, "OK: DIST:BASSBLEND=%.2f", val);
     }
+    else if (strncmp(sub, "BYPASS:", 7) == 0)
+    {
+        handleBypass(m_distortion, sub + 7);
+    }
     else
     {
         respond("ERR: unknown DIST command. Use GAIN:, MIX:, BASSBLEND:, BYPASS:\n");
@@ -107,6 +113,10 @@ void SerialControl::handleLimiter(const char *sub)
             respond("ERR: unknown type. Use HARD or SOFT\n");
         ESP_LOGI(TAG, "OK: LIM:TYPE=%s", type);
     }
+    else if (strncmp(sub, "BYPASS:", 7) == 0)
+    {
+        handleBypass(m_limiter, sub + 7);
+    }
     else
     {
         respond("ERR: unknown LIM command. Use THRESH:, TYPE:, BYPASS:\n");
@@ -121,9 +131,55 @@ void SerialControl::handleLowPass(const char *sub)
         m_lowPass.setCutoff(val);
         ESP_LOGI(TAG, "OK: LPF:CUTOFF=%.2f", val);
     }
+    else if (strncmp(sub, "BYPASS:", 7) == 0)
+    {
+        handleBypass(m_lowPass, sub + 7);
+    }
     else
     {
         respond("ERR: unknown LPF command. Use CUTOFF:, BYPASS:\n");
+    }
+}
+
+void SerialControl::handleAutoWah(const char *sub)
+{
+    if (strncmp(sub, "RATE:", 5) == 0)
+    {
+        float val = atof(sub + 5);
+        m_autoWah.setLfoRate(val);
+        ESP_LOGI(TAG, "OK: WAH:RATE=%.2f", val);
+    }
+    else if (strncmp(sub, "DEPTH:", 6) == 0)
+    {
+        float val = atof(sub + 6);
+        m_autoWah.setLfoDepth(val);
+        ESP_LOGI(TAG, "OK: WAH:DEPTH=%.2f", val);
+    }
+    else if (strncmp(sub, "MIN:", 4) == 0)
+    {
+        float val = atof(sub + 4);
+        m_autoWah.setMinFreq(val);
+        ESP_LOGI(TAG, "OK: WAH:MIN=%.2f", val);
+    }
+    else if (strncmp(sub, "MAX:", 4) == 0)
+    {
+        float val = atof(sub + 4);
+        m_autoWah.setMaxFreq(val);
+        ESP_LOGI(TAG, "OK: WAH:MAX=%.2f", val);
+    }
+    else if (strncmp(sub, "Q:", 2) == 0)
+    {
+        float val = atof(sub + 2);
+        m_autoWah.setQ(val);
+        ESP_LOGI(TAG, "OK: WAH:Q=%.2f", val);
+    }
+    else if (strncmp(sub, "BYPASS:", 7) == 0)
+    {
+        handleBypass(m_autoWah, sub + 7);
+    }
+    else
+    {
+        respond("ERR: unknown WAH command. Use RATE:, DEPTH:, MIN:, MAX:, Q:, BYPASS:\n");
     }
 }
 
